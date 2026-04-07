@@ -34,16 +34,17 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    if (property.planType === 'FREE') {
+    const { hasPreventiveMaintenance } = await import('@/lib/plans')
+    if (!hasPreventiveMaintenance(property.planType as import('@/lib/plans').PlanType)) {
       return NextResponse.json(
-        { error: 'Plano FREE não suporta tasks preventivas. Faça upgrade para MID ou PREMIUM.' },
+        { error: 'Plano STARTER não inclui manutenção preventiva. Faça upgrade para Basic, Mid ou Premium.' },
         { status: 422 }
       )
     }
 
     const tasks = await generatePreventiveTasks(
       propertyId,
-      property.planType as import('@/types').PlanType,
+      property.planType as import('@/lib/plans').PlanType,
       months
     )
 

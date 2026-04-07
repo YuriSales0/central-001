@@ -1,8 +1,10 @@
 import { addBusinessDays, endOfMonth, addDays } from 'date-fns'
+import { calculateCommission as calcByPlan, COMMISSION_RATES, type PlanType } from './plans'
 
 export type PayoutPlatform = 'AIRBNB' | 'BOOKING' | 'MANUAL'
 
-export const COMMISSION_RATE = 0.18  // 18%
+/** @deprecated use calculateCommission(amount, planType) */
+export const COMMISSION_RATE = 0.18
 
 /**
  * Regras de estimativa de payout por plataforma.
@@ -42,10 +44,18 @@ export function estimatePayoutDate(
   }
 }
 
-export function calculateCommission(grossAmount: number) {
-  const commissionAmount = parseFloat((grossAmount * COMMISSION_RATE).toFixed(2))
-  const netAmount = parseFloat((grossAmount - commissionAmount).toFixed(2))
-  return { commissionAmount, netAmount }
+/**
+ * Calcula comissão com base no plano da propriedade.
+ * grossAmount = valor líquido recebido da plataforma (já descontadas as taxas da plataforma).
+ * A comissão HostMasters é aplicada sobre esse valor.
+ */
+export function calculateCommission(grossAmount: number, planType: PlanType = 'MID') {
+  const { commissionAmount, ownerAmount } = calcByPlan(grossAmount, planType)
+  return {
+    rate: COMMISSION_RATES[planType],
+    commissionAmount,
+    netAmount: ownerAmount,  // valor que vai para o owner
+  }
 }
 
 export const PLATFORM_LABELS: Record<PayoutPlatform, string> = {

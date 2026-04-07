@@ -2,7 +2,8 @@ import { prisma } from './prisma'
 import { CHECKLISTS, DEFAULT_NOTES } from './checklists'
 import { assignToLeastBusyCrew, NoCrewAvailableError } from './crew'
 import { sendNoCrewAlert } from './email'
-import type { TaskType, PlanType } from '@/types'
+import type { TaskType } from '@/types'
+import { type PlanType, hasPreventiveMaintenance } from './plans'
 import { addDays } from 'date-fns'
 
 interface CreateTaskOptions {
@@ -113,7 +114,7 @@ export async function generatePreventiveTasks(
   planType: PlanType,
   months = 3,
 ) {
-  if (planType === 'FREE') return []
+  if (!hasPreventiveMaintenance(planType)) return []
 
   const today = new Date()
   today.setHours(8, 0, 0, 0)
@@ -161,7 +162,7 @@ export async function createPostCheckoutCleaning(
   checkOutDate: Date,
   guestName: string,
 ) {
-  if (planType === 'FREE') return null
+  if (!hasPreventiveMaintenance(planType)) return null
 
   const cleaningDate = new Date(checkOutDate)
   cleaningDate.setHours(cleaningDate.getHours() + 2)

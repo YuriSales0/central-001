@@ -84,7 +84,7 @@ export async function POST(req: NextRequest) {
       if (property.planType !== 'FREE') {
         const cleaningTask = await createPostCheckoutCleaning(
           data.propertyId,
-          property.planType as import('@/types').PlanType,
+          property.planType as import('@/lib/plans').PlanType,
           checkOut,
           data.guestName
         )

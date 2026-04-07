@@ -10,11 +10,12 @@ datasource db {
 // ─── Models ──────────────────────────────────────────────────────────────────
 // SQLite não suporta enums nativos; valores válidos são validados no app (Zod).
 // Role:               ADMIN | MANAGER | CREW | CLIENT
-// PlanType:           FREE | MID | PREMIUM
 // PropertyStatus:     ACTIVE | INACTIVE
 // ReservationStatus:  CONFIRMED | CANCELLED | COMPLETED
 // TaskType:           CHECK_IN | CHECK_OUT | CLEANING | INSPECTION | MAINTENANCE_PREVENTIVE | MAINTENANCE_CORRECTIVE
 // TaskStatus:         PENDING | IN_PROGRESS | DONE | CANCELLED
+// PlanType:           STARTER | BASIC | MID | PREMIUM
+// BillingType:        MONTHLY | ANNUAL
 // PayoutPlatform:     AIRBNB | BOOKING | MANUAL
 // PayoutStatus:       PENDING | RECEIVED | OVERDUE
 // LeadStatus:         NEW | CONTACTED | QUALIFIED | CONVERTED | LOST
@@ -44,11 +45,19 @@ model User {
 }
 
 model Property {
-  id       String @id @default(cuid())
-  name     String
-  address  String
-  planType String @default("FREE")
-  status   String @default("ACTIVE")
+  id          String  @id @default(cuid())
+  name        String
+  address     String
+  city        String?
+  country     String  @default("ES")  // ISO 3166-1 alpha-2
+  planType    String  @default("STARTER") // STARTER | BASIC | MID | PREMIUM
+  billingType String  @default("MONTHLY") // MONTHLY | ANNUAL
+  status      String  @default("ACTIVE")  // ACTIVE | INACTIVE
+
+  // Datas de gestão do plano
+  planStartDate   DateTime?
+  planRenewalDate DateTime?
+  firstMonthFree  Boolean   @default(true)
 
   managerId String
   manager   User   @relation("ManagerProperties", fields: [managerId], references: [id])

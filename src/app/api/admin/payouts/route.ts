@@ -95,7 +95,12 @@ export async function POST(req: NextRequest) {
 
     const reservation = await prisma.reservation.findUnique({
       where: { id: data.reservationId },
-      select: { id: true, checkInDate: true, checkOutDate: true },
+      select: {
+        id: true,
+        checkInDate: true,
+        checkOutDate: true,
+        property: { select: { planType: true } },
+      },
     })
 
     if (!reservation) {
@@ -107,7 +112,8 @@ export async function POST(req: NextRequest) {
         ? new Date(data.expectedDate)
         : estimatePayoutDate(data.platform, reservation.checkInDate, reservation.checkOutDate)
 
-    const { commissionAmount, netAmount } = calculateCommission(data.grossAmount)
+    const planType = (reservation.property.planType ?? 'STARTER') as import('@/lib/plans').PlanType
+    const { commissionAmount, netAmount } = calculateCommission(data.grossAmount, planType)
 
     const payout = await prisma.payout.create({
       data: {
