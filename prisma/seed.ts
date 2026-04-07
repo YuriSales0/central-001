@@ -236,6 +236,47 @@ async function main() {
     },
   })
 
+  // Cliente demo (ligado ao manager)
+  const client = await prisma.user.upsert({
+    where: { email: 'cliente@central.app' },
+    update: { passwordHash: await hash('cliente123') },
+    create: {
+      id: 'demo-client-id',
+      email: 'cliente@central.app',
+      name: 'Ricardo Cliente',
+      role: 'CLIENT',
+      managerId: manager.id,
+      passwordHash: await hash('cliente123'),
+    },
+  })
+
+  // Conversa demo entre cliente e manager
+  const demoConv = await prisma.conversation.upsert({
+    where: { clientId_managerId: { clientId: client.id, managerId: manager.id } },
+    update: {},
+    create: {
+      id: 'conv-001',
+      clientId: client.id,
+      managerId: manager.id,
+      subject: 'Problema no aquecedor',
+    },
+  })
+
+  // Mensagens demo na conversa
+  const demoMessages = [
+    { conversationId: demoConv.id, senderId: client.id, content: 'Bom dia! O aquecedor do apartamento não está a funcionar desde ontem à noite. Pode ver isso?' },
+    { conversationId: demoConv.id, senderId: manager.id, content: 'Bom dia, Ricardo! Obrigado por avisar. Vou enviar a Ana Lima ainda hoje para verificar. Algum outro detalhe sobre o problema?' },
+    { conversationId: demoConv.id, senderId: client.id, content: 'Obrigado! O aquecedor liga mas não aquece. A luz está acesa mas a água sai fria.' },
+    { conversationId: demoConv.id, senderId: manager.id, content: 'Entendido. Pode ser o elemento de aquecimento. A Ana entrará em contacto para confirmar o horário. Qualquer coisa estou à disposição.' },
+  ]
+
+  for (const msg of demoMessages) {
+    await prisma.message.create({ data: msg })
+  }
+
+  // Bump updatedAt da conversa
+  await prisma.conversation.update({ where: { id: demoConv.id }, data: { updatedAt: new Date() } })
+
   // Leads de demo
   const leadsData = [
     { id: 'lead-001', name: 'Pedro Alves', email: 'pedro@email.com', phone: '+55 48 99111-2222', source: 'AIRBNB', status: 'NEW', managerId: manager.id, propertyInterest: 'Apartamento Beira-Mar' },
@@ -250,8 +291,10 @@ async function main() {
   console.log(`   Admin:   ${admin.email}  / admin123`)
   console.log(`   Manager: ${manager.email} / manager123`)
   console.log(`   Crew:    crew1@central.app / crew123`)
+  console.log(`   Client:  ${client.email} / cliente123`)
   console.log(`   Propriedades: ${prop1.name}, ${prop2.name}`)
   console.log(`   Leads: 3 criados`)
+  console.log(`   Conversa demo: "${demoConv.subject}" (${demoMessages.length} mensagens)`)
 }
 
 main()

@@ -25,23 +25,65 @@ model User {
   email        String  @unique
   name         String
   role         String  @default("CREW")
-  passwordHash String? // null = usuário sem acesso direto ao sistema
+  passwordHash String?
   phone        String?
+  avatar       String? // URL opcional
   active       Boolean @default(true)
 
+  // Para CREW: manager que o supervisiona
+  // Para CLIENT: manager responsável pela sua propriedade
   managerId   String?
-  manager     User?   @relation("ManagerCrew", fields: [managerId], references: [id])
-  crewMembers User[]  @relation("ManagerCrew")
+  manager     User?   @relation("ManagedUsers", fields: [managerId], references: [id])
+  managedUsers User[] @relation("ManagedUsers")
 
-  properties    Property[] @relation("ManagerProperties")
-  assignedTasks Task[]     @relation("AssignedTasks")
-  leads         Lead[]     @relation("ManagerLeads")
+  properties    Property[]     @relation("ManagerProperties")
+  assignedTasks Task[]         @relation("AssignedTasks")
+  leads         Lead[]         @relation("ManagerLeads")
+  sentMessages  Message[]      @relation("MessageSender")
+
+  // Conversas onde é o client
+  clientConversations   Conversation[] @relation("ConversationClient")
+  // Conversas onde é o manager
+  managerConversations  Conversation[] @relation("ConversationManager")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([role])
   @@index([managerId])
+}
+
+model Conversation {
+  id        String  @id @default(cuid())
+  clientId  String
+  client    User    @relation("ConversationClient", fields: [clientId], references: [id])
+  managerId String
+  manager   User    @relation("ConversationManager", fields: [managerId], references: [id])
+  subject   String? // assunto opcional (ex: "Problema na propriedade X")
+
+  messages  Message[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([clientId, managerId]) // uma conversa por par client-manager
+  @@index([clientId])
+  @@index([managerId])
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderId       String
+  sender         User         @relation("MessageSender", fields: [senderId], references: [id])
+  content        String
+  readAt         DateTime?    // null = não lida
+
+  createdAt DateTime @default(now())
+
+  @@index([conversationId])
+  @@index([senderId])
 }
 
 model Property {
