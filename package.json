@@ -30,6 +30,9 @@
     "tailwind-merge": "^2.2.2",
     "zod": "^3.22.4"
   },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
   "devDependencies": {
     "@types/node": "^20.12.7",
     "@types/nodemailer": "^6.4.14",
