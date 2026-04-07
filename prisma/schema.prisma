@@ -15,6 +15,8 @@ datasource db {
 // ReservationStatus:  CONFIRMED | CANCELLED | COMPLETED
 // TaskType:           CHECK_IN | CHECK_OUT | CLEANING | INSPECTION | MAINTENANCE_PREVENTIVE | MAINTENANCE_CORRECTIVE
 // TaskStatus:         PENDING | IN_PROGRESS | DONE | CANCELLED
+// PayoutPlatform:     AIRBNB | BOOKING | MANUAL
+// PayoutStatus:       PENDING | RECEIVED | OVERDUE
 
 model User {
   id        String  @id @default(cuid())
@@ -71,7 +73,8 @@ model Reservation {
   externalId   String?  @unique
   notes        String?
 
-  tasks Task[]
+  tasks   Task[]
+  payouts Payout[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -111,6 +114,33 @@ model Task {
   @@index([dueDate])
   @@index([status])
   @@index([type])
+}
+
+model Payout {
+  id               String   @id @default(cuid())
+  reservationId    String
+  reservation      Reservation @relation(fields: [reservationId], references: [id])
+
+  platform         String   // AIRBNB | BOOKING | MANUAL
+  status           String   @default("PENDING") // PENDING | RECEIVED | OVERDUE
+
+  grossAmount      Float    // valor bruto recebido da plataforma (em EUR)
+  commissionAmount Float    // 18% do gross
+  netAmount        Float    // gross - commission
+
+  currency         String   @default("EUR")
+  expectedDate     DateTime // data estimada de recebimento
+  receivedAt       DateTime? // data real de recebimento (quando admin confirma)
+
+  notes            String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([reservationId])
+  @@index([status])
+  @@index([expectedDate])
+  @@index([platform])
 }
 
 model ChecklistItem {
