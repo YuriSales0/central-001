@@ -7,12 +7,13 @@ import {
   CheckCircle,
   Clock,
   AlertTriangle,
-  ChevronDown,
   Euro,
   Filter,
 } from 'lucide-react'
 import { clsx } from 'clsx'
 import { PayoutHowItWorksModal } from '@/components/payouts/PayoutHowItWorksModal'
+import { CurrencySelector } from '@/components/ui/CurrencySelector'
+import { useCurrency } from '@/hooks/useCurrency'
 import { PLATFORM_LABELS } from '@/lib/payouts'
 
 type PayoutStatus = 'PENDING' | 'RECEIVED' | 'OVERDUE'
@@ -72,15 +73,8 @@ const PLATFORM_BADGE: Record<Platform, string> = {
   MANUAL: 'bg-gray-100 text-gray-700',
 }
 
-function fmt(amount: number, currency = 'EUR') {
-  return new Intl.NumberFormat('pt-BR', {
-    style: 'currency',
-    currency,
-    minimumFractionDigits: 2,
-  }).format(amount)
-}
-
 export default function AdminPayoutsPage() {
+  const { currency, setCurrency, fmt, loading: ratesLoading } = useCurrency()
   const [payouts, setPayouts] = useState<Payout[]>([])
   const [totals, setTotals] = useState<Totals | null>(null)
   const [loading, setLoading] = useState(false)
@@ -121,7 +115,15 @@ export default function AdminPayoutsPage() {
             <h1 className="text-xl font-bold text-gray-900">Payouts</h1>
             <p className="text-sm text-gray-500">Recebimentos das plataformas</p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
+            {/* Seletor de moeda */}
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-400">Exibir em</span>
+              <CurrencySelector value={currency} onChange={setCurrency} />
+              {ratesLoading && (
+                <span className="text-[10px] text-gray-400 animate-pulse">cotação...</span>
+              )}
+            </div>
             {/* ← BOTÃO DE EXPLICAÇÃO */}
             <PayoutHowItWorksModal />
             <a href="/" className="text-sm text-gray-500 hover:text-gray-700">← Início</a>
