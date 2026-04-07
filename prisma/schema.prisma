@@ -1,0 +1,240 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ─── Models ──────────────────────────────────────────────────────────────────
+// SQLite não suporta enums nativos; valores válidos são validados no app (Zod).
+// Role:               ADMIN | MANAGER | CREW | CLIENT
+// PropertyStatus:     ACTIVE | INACTIVE
+// ReservationStatus:  CONFIRMED | CANCELLED | COMPLETED
+// TaskType:           CHECK_IN | CHECK_OUT | CLEANING | INSPECTION | MAINTENANCE_PREVENTIVE | MAINTENANCE_CORRECTIVE
+// TaskStatus:         PENDING | IN_PROGRESS | DONE | CANCELLED
+// PlanType:           STARTER | BASIC | MID | PREMIUM
+// BillingType:        MONTHLY | ANNUAL
+// PayoutPlatform:     AIRBNB | BOOKING | MANUAL
+// PayoutStatus:       PENDING | RECEIVED | OVERDUE
+// LeadStatus:         NEW | CONTACTED | QUALIFIED | CONVERTED | LOST
+
+model User {
+  id           String  @id @default(cuid())
+  email        String  @unique
+  name         String
+  role         String  @default("CREW")
+  passwordHash String?
+  phone        String?
+  avatar       String? // URL opcional
+  active       Boolean @default(true)
+
+  // Para CREW: manager que o supervisiona
+  // Para CLIENT: manager responsável pela sua propriedade
+  managerId   String?
+  manager     User?   @relation("ManagedUsers", fields: [managerId], references: [id])
+  managedUsers User[] @relation("ManagedUsers")
+
+  properties    Property[]     @relation("ManagerProperties")
+  assignedTasks Task[]         @relation("AssignedTasks")
+  leads         Lead[]         @relation("ManagerLeads")
+  sentMessages  Message[]      @relation("MessageSender")
+
+  // Conversas onde é o client
+  clientConversations   Conversation[] @relation("ConversationClient")
+  // Conversas onde é o manager
+  managerConversations  Conversation[] @relation("ConversationManager")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([role])
+  @@index([managerId])
+}
+
+model Conversation {
+  id        String  @id @default(cuid())
+  clientId  String
+  client    User    @relation("ConversationClient", fields: [clientId], references: [id])
+  managerId String
+  manager   User    @relation("ConversationManager", fields: [managerId], references: [id])
+  subject   String? // assunto opcional (ex: "Problema na propriedade X")
+
+  messages  Message[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([clientId, managerId]) // uma conversa por par client-manager
+  @@index([clientId])
+  @@index([managerId])
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderId       String
+  sender         User         @relation("MessageSender", fields: [senderId], references: [id])
+  content        String
+  readAt         DateTime?    // null = não lida
+
+  createdAt DateTime @default(now())
+
+  @@index([conversationId])
+  @@index([senderId])
+}
+
+model Property {
+  id          String  @id @default(cuid())
+  name        String
+  address     String
+  city        String?
+  country     String  @default("ES")  // ISO 3166-1 alpha-2
+  planType    String  @default("STARTER") // STARTER | BASIC | MID | PREMIUM
+  billingType String  @default("MONTHLY") // MONTHLY | ANNUAL
+  status      String  @default("ACTIVE")  // ACTIVE | INACTIVE
+
+  // Datas de gestão do plano
+  planStartDate   DateTime?
+  planRenewalDate DateTime?
+  firstMonthFree  Boolean   @default(true)
+
+  managerId String
+  manager   User   @relation("ManagerProperties", fields: [managerId], references: [id])
+
+  reservations Reservation[]
+  tasks        Task[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([managerId])
+  @@index([status, planType])
+}
+
+model Reservation {
+  id           String  @id @default(cuid())
+  propertyId   String
+  property     Property @relation(fields: [propertyId], references: [id])
+  guestName    String
+  guestEmail   String?
+  guestPhone   String?
+  checkInDate  DateTime
+  checkOutDate DateTime
+  status       String   @default("CONFIRMED")
+  externalId   String?  @unique
+  notes        String?
+
+  tasks   Task[]
+  payouts Payout[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([propertyId])
+  @@index([checkInDate])
+  @@index([checkOutDate])
+}
+
+model Task {
+  id          String  @id @default(cuid())
+  title       String
+  description String?
+  notes       String?
+  type        String
+  status      String  @default("PENDING")
+  dueDate     DateTime
+
+  propertyId    String
+  property      Property @relation(fields: [propertyId], references: [id])
+
+  reservationId String?
+  reservation   Reservation? @relation(fields: [reservationId], references: [id])
+
+  assigneeId String
+  assignee   User   @relation("AssignedTasks", fields: [assigneeId], references: [id])
+
+  checklistItems ChecklistItem[]
+
+  completedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([propertyId])
+  @@index([assigneeId])
+  @@index([dueDate])
+  @@index([status])
+  @@index([type])
+}
+
+model Lead {
+  id        String  @id @default(cuid())
+  name      String
+  email     String?
+  phone     String?
+  source    String  @default("MANUAL") // AIRBNB | BOOKING | WHATSAPP | INSTAGRAM | REFERRAL | MANUAL
+  status    String  @default("NEW")    // NEW | CONTACTED | QUALIFIED | CONVERTED | LOST
+  notes     String?
+
+  // Propriedade de interesse
+  propertyInterest String?
+
+  // Manager responsável
+  managerId String?
+  manager   User?   @relation("ManagerLeads", fields: [managerId], references: [id])
+
+  // Se convertido → link com reserva
+  reservationId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([managerId])
+  @@index([source])
+}
+
+model Payout {
+  id               String   @id @default(cuid())
+  reservationId    String
+  reservation      Reservation @relation(fields: [reservationId], references: [id])
+
+  platform         String   // AIRBNB | BOOKING | MANUAL
+  status           String   @default("PENDING") // PENDING | RECEIVED | OVERDUE
+
+  grossAmount      Float    // valor bruto recebido da plataforma (em EUR)
+  commissionAmount Float    // 18% do gross
+  netAmount        Float    // gross - commission
+
+  currency         String   @default("EUR")
+  expectedDate     DateTime // data estimada de recebimento
+  receivedAt       DateTime? // data real de recebimento (quando admin confirma)
+
+  notes            String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([reservationId])
+  @@index([status])
+  @@index([expectedDate])
+  @@index([platform])
+}
+
+model ChecklistItem {
+  id        String  @id @default(cuid())
+  taskId    String
+  task      Task    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  text      String
+  completed Boolean @default(false)
+  order     Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([taskId])
+}
