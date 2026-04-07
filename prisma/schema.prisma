@@ -1,0 +1,128 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Models ──────────────────────────────────────────────────────────────────
+// SQLite não suporta enums nativos; valores válidos são validados no app (Zod).
+// Role:               ADMIN | MANAGER | CREW | CLIENT
+// PlanType:           FREE | MID | PREMIUM
+// PropertyStatus:     ACTIVE | INACTIVE
+// ReservationStatus:  CONFIRMED | CANCELLED | COMPLETED
+// TaskType:           CHECK_IN | CHECK_OUT | CLEANING | INSPECTION | MAINTENANCE_PREVENTIVE | MAINTENANCE_CORRECTIVE
+// TaskStatus:         PENDING | IN_PROGRESS | DONE | CANCELLED
+
+model User {
+  id        String  @id @default(cuid())
+  email     String  @unique
+  name      String
+  role      String  @default("CREW")
+  phone     String?
+  active    Boolean @default(true)
+
+  managerId   String?
+  manager     User?   @relation("ManagerCrew", fields: [managerId], references: [id])
+  crewMembers User[]  @relation("ManagerCrew")
+
+  properties    Property[] @relation("ManagerProperties")
+  assignedTasks Task[]     @relation("AssignedTasks")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([role])
+  @@index([managerId])
+}
+
+model Property {
+  id       String @id @default(cuid())
+  name     String
+  address  String
+  planType String @default("FREE")
+  status   String @default("ACTIVE")
+
+  managerId String
+  manager   User   @relation("ManagerProperties", fields: [managerId], references: [id])
+
+  reservations Reservation[]
+  tasks        Task[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([managerId])
+  @@index([status, planType])
+}
+
+model Reservation {
+  id           String  @id @default(cuid())
+  propertyId   String
+  property     Property @relation(fields: [propertyId], references: [id])
+  guestName    String
+  guestEmail   String?
+  guestPhone   String?
+  checkInDate  DateTime
+  checkOutDate DateTime
+  status       String   @default("CONFIRMED")
+  externalId   String?  @unique
+  notes        String?
+
+  tasks Task[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([propertyId])
+  @@index([checkInDate])
+  @@index([checkOutDate])
+}
+
+model Task {
+  id          String  @id @default(cuid())
+  title       String
+  description String?
+  notes       String?
+  type        String
+  status      String  @default("PENDING")
+  dueDate     DateTime
+
+  propertyId    String
+  property      Property @relation(fields: [propertyId], references: [id])
+
+  reservationId String?
+  reservation   Reservation? @relation(fields: [reservationId], references: [id])
+
+  assigneeId String
+  assignee   User   @relation("AssignedTasks", fields: [assigneeId], references: [id])
+
+  checklistItems ChecklistItem[]
+
+  completedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([propertyId])
+  @@index([assigneeId])
+  @@index([dueDate])
+  @@index([status])
+  @@index([type])
+}
+
+model ChecklistItem {
+  id        String  @id @default(cuid())
+  taskId    String
+  task      Task    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  text      String
+  completed Boolean @default(false)
+  order     Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([taskId])
+}
