@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { X, CheckSquare, Square, User, Calendar, MapPin, StickyNote, RefreshCw } from 'lucide-react'
+import { X, CheckSquare, Square, User, Calendar, MapPin, StickyNote, RefreshCw, ClipboardList, AlertTriangle } from 'lucide-react'
 import {
   TASK_TYPE_LABELS,
   TASK_TYPE_COLORS,
@@ -33,6 +33,13 @@ export function TaskDetailModal({ taskId, onClose, onUpdated, canReassign, crewL
   const [saving, setSaving] = useState(false)
   const [notes, setNotes] = useState('')
   const [editingNotes, setEditingNotes] = useState(false)
+
+  // Report de checkout obrigatório
+  const [showReport, setShowReport] = useState(false)
+  const [reportCondition, setReportCondition] = useState<number>(5)     // 1-5 estrelas
+  const [reportIssues, setReportIssues] = useState('')
+  const [reportDamages, setReportDamages] = useState('')
+  const [reportNotes, setReportNotes] = useState('')
 
   useEffect(() => {
     if (!taskId) { setTask(null); return }
@@ -73,6 +80,13 @@ export function TaskDetailModal({ taskId, onClose, onUpdated, canReassign, crewL
 
   async function changeStatus(status: TaskStatus) {
     if (!task) return
+
+    // CHECK_OUT → DONE exige report de vistoria
+    if (status === 'DONE' && task.type === 'CHECK_OUT') {
+      setShowReport(true)
+      return
+    }
+
     setSaving(true)
     await fetch(`/api/tasks/${task.id}`, {
       method: 'PATCH',
@@ -80,6 +94,30 @@ export function TaskDetailModal({ taskId, onClose, onUpdated, canReassign, crewL
       body: JSON.stringify({ status }),
     })
     setTask((prev) => prev ? { ...prev, status } : prev)
+    setSaving(false)
+    onUpdated()
+  }
+
+  async function submitCheckoutReport() {
+    if (!task) return
+    setSaving(true)
+
+    const reportText = [
+      `📋 RELATÓRIO DE VISTORIA`,
+      `Estado geral: ${'★'.repeat(reportCondition)}${'☆'.repeat(5 - reportCondition)} (${reportCondition}/5)`,
+      reportIssues  ? `Problemas encontrados:\n${reportIssues}` : null,
+      reportDamages ? `Danos / avarias:\n${reportDamages}` : null,
+      reportNotes   ? `Observações:\n${reportNotes}` : null,
+    ].filter(Boolean).join('\n\n')
+
+    await fetch(`/api/tasks/${task.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'DONE', description: reportText }),
+    })
+
+    setTask((prev) => prev ? { ...prev, status: 'DONE', description: reportText } : prev)
+    setShowReport(false)
     setSaving(false)
     onUpdated()
   }
@@ -317,6 +355,127 @@ export function TaskDetailModal({ taskId, onClose, onUpdated, canReassign, crewL
           <div className="p-8 text-center text-gray-400">Task não encontrada.</div>
         )}
       </div>
+
+      {/* ── Modal de relatório de vistoria (CHECK_OUT → DONE) ── */}
+      {showReport && (
+        <div
+          className="fixed inset-0 z-60 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+          onClick={() => setShowReport(false)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-3 px-5 py-4 border-b border-gray-100">
+              <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center flex-shrink-0">
+                <ClipboardList size={16} className="text-orange-600" />
+              </div>
+              <div>
+                <h3 className="font-bold text-sm text-gray-900">Relatório de vistoria</h3>
+                <p className="text-xs text-gray-400">Obrigatório para concluir o check-out</p>
+              </div>
+              <button onClick={() => setShowReport(false)} className="ml-auto p-1.5 rounded-full hover:bg-gray-100 text-gray-400">
+                <X size={15} />
+              </button>
+            </div>
+
+            <div className="px-5 py-4 space-y-4">
+              {/* Aviso */}
+              <div className="flex gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                <AlertTriangle size={13} className="text-amber-500 flex-shrink-0 mt-0.5" />
+                <p className="text-xs text-amber-700">
+                  Preencha a vistoria antes de fechar o check-out. Este relatório ficará registado na task.
+                </p>
+              </div>
+
+              {/* Estado geral */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-2">
+                  Estado geral da propriedade
+                </label>
+                <div className="flex gap-2">
+                  {[1, 2, 3, 4, 5].map((n) => (
+                    <button
+                      key={n}
+                      type="button"
+                      onClick={() => setReportCondition(n)}
+                      className={clsx(
+                        'flex-1 py-2 rounded-lg text-sm font-bold border transition-all',
+                        reportCondition >= n
+                          ? 'bg-amber-400 border-amber-400 text-white'
+                          : 'border-gray-200 text-gray-300 hover:border-amber-200'
+                      )}
+                    >
+                      ★
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[10px] text-gray-400 mt-1 text-center">
+                  {['', 'Muito mau', 'Mau', 'Razoável', 'Bom', 'Excelente'][reportCondition]}
+                </p>
+              </div>
+
+              {/* Problemas */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Problemas encontrados <span className="text-gray-400">(opcional)</span>
+                </label>
+                <textarea
+                  value={reportIssues}
+                  onChange={(e) => setReportIssues(e.target.value)}
+                  rows={2}
+                  placeholder="Ex: Lâmpada fundida no quarto, torneira pingando..."
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300 resize-none"
+                />
+              </div>
+
+              {/* Danos */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Danos ou avarias <span className="text-gray-400">(opcional)</span>
+                </label>
+                <textarea
+                  value={reportDamages}
+                  onChange={(e) => setReportDamages(e.target.value)}
+                  rows={2}
+                  placeholder="Ex: Arranhão no sofá, taça partida..."
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300 resize-none"
+                />
+              </div>
+
+              {/* Observações */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Observações gerais <span className="text-gray-400">(opcional)</span>
+                </label>
+                <textarea
+                  value={reportNotes}
+                  onChange={(e) => setReportNotes(e.target.value)}
+                  rows={2}
+                  placeholder="Qualquer outra informação relevante..."
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300 resize-none"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-2 px-5 pb-5">
+              <button
+                onClick={() => setShowReport(false)}
+                className="flex-1 py-2.5 text-sm text-gray-600 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={submitCheckoutReport}
+                disabled={saving}
+                className="flex-1 py-2.5 text-sm font-semibold bg-orange-500 text-white rounded-xl hover:bg-orange-600 disabled:opacity-50 transition-colors"
+              >
+                {saving ? 'Guardando...' : 'Concluir check-out'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

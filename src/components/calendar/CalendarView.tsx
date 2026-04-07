@@ -25,10 +25,11 @@ import {
   subMonths,
 } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import { clsx } from 'clsx'
 import { TaskCard } from './TaskCard'
 import { TaskDetailModal } from './TaskDetailModal'
+import { CreateTaskModal } from './CreateTaskModal'
 import { TASK_TYPE_LABELS } from '@/types'
 import type { TaskType, TaskStatus } from '@/types'
 
@@ -74,7 +75,7 @@ function DroppableDay({
     <div
       ref={setNodeRef}
       className={clsx(
-        'min-h-[90px] p-1 border-b border-r border-gray-100 transition-colors',
+        'group min-h-[90px] p-1 border-b border-r border-gray-100 transition-colors',
         isOver && 'bg-blue-50',
         !isCurrentMonth && 'bg-gray-50/40'
       )}
@@ -101,6 +102,7 @@ export function CalendarView({
   const [currentDate, setCurrentDate] = useState(new Date())
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
   const [draggingTask, setDraggingTask] = useState<CalendarTask | null>(null)
+  const [createDate, setCreateDate] = useState<Date | null>(null)
   const [filterType, setFilterType] = useState<TaskType | 'ALL'>('ALL')
   const [filterStatus, setFilterStatus] = useState<TaskStatus | 'ALL'>('ALL')
   const [filterProperty, setFilterProperty] = useState<string>('ALL')
@@ -289,8 +291,15 @@ export function CalendarView({
 
               return (
                 <DroppableDay key={dayKey} date={day} isCurrentMonth={inMonth}>
-                  {/* Day number */}
-                  <div className="flex justify-end mb-1">
+                  {/* Day number + botão criar task */}
+                  <div className="flex items-center justify-between mb-1">
+                    <button
+                      onClick={() => setCreateDate(day)}
+                      className="opacity-0 group-hover:opacity-100 w-4 h-4 rounded flex items-center justify-center text-gray-400 hover:bg-gray-200 hover:text-gray-600 transition-all"
+                      title="Nova task"
+                    >
+                      <Plus size={10} />
+                    </button>
                     <span
                       className={clsx(
                         'text-xs w-5 h-5 flex items-center justify-center rounded-full',
@@ -312,6 +321,7 @@ export function CalendarView({
                         title={task.title}
                         type={task.type}
                         status={task.status}
+                        dueDate={task.dueDate}
                         assigneeName={task.assigneeName}
                         checklistDone={task.checklistDone}
                         checklistTotal={task.checklistTotal}
@@ -340,6 +350,7 @@ export function CalendarView({
                 title={draggingTask.title}
                 type={draggingTask.type}
                 status={draggingTask.status}
+                dueDate={draggingTask.dueDate}
                 assigneeName={draggingTask.assigneeName}
                 checklistDone={draggingTask.checklistDone}
                 checklistTotal={draggingTask.checklistTotal}
@@ -360,6 +371,16 @@ export function CalendarView({
         canReassign={canReassign}
         crewList={crewList}
       />
+
+      {/* Criar task manual */}
+      {createDate && (
+        <CreateTaskModal
+          defaultDate={createDate}
+          properties={properties ?? []}
+          onClose={() => setCreateDate(null)}
+          onCreated={() => { setCreateDate(null); onTaskUpdated() }}
+        />
+      )}
     </div>
   )
 }

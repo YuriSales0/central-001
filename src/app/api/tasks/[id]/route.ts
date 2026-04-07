@@ -7,6 +7,7 @@ const UpdateTaskSchema = z.object({
   dueDate: z.string().datetime().optional(),      // drag & drop → só muda dueDate
   assigneeId: z.string().optional(),              // reassign manual pelo admin
   notes: z.string().optional(),
+  description: z.string().optional(),             // relatório de vistoria (check-out)
   checklistItems: z
     .array(z.object({ id: z.string(), completed: z.boolean() }))
     .optional(),
@@ -76,6 +77,7 @@ export async function PATCH(
         ...(data.dueDate && { dueDate: new Date(data.dueDate) }),
         ...(data.assigneeId && { assigneeId: data.assigneeId }),
         ...(data.notes !== undefined && { notes: data.notes }),
+        ...(data.description !== undefined && { description: data.description }),
         ...(data.status === 'DONE' && { completedAt: new Date() }),
         // Se reabriu → limpa completedAt
         ...(data.status && data.status !== 'DONE' && task.completedAt && {
