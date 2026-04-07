@@ -17,14 +17,16 @@ datasource db {
 // TaskStatus:         PENDING | IN_PROGRESS | DONE | CANCELLED
 // PayoutPlatform:     AIRBNB | BOOKING | MANUAL
 // PayoutStatus:       PENDING | RECEIVED | OVERDUE
+// LeadStatus:         NEW | CONTACTED | QUALIFIED | CONVERTED | LOST
 
 model User {
-  id        String  @id @default(cuid())
-  email     String  @unique
-  name      String
-  role      String  @default("CREW")
-  phone     String?
-  active    Boolean @default(true)
+  id           String  @id @default(cuid())
+  email        String  @unique
+  name         String
+  role         String  @default("CREW")
+  passwordHash String? // null = usuário sem acesso direto ao sistema
+  phone        String?
+  active       Boolean @default(true)
 
   managerId   String?
   manager     User?   @relation("ManagerCrew", fields: [managerId], references: [id])
@@ -32,6 +34,7 @@ model User {
 
   properties    Property[] @relation("ManagerProperties")
   assignedTasks Task[]     @relation("AssignedTasks")
+  leads         Lead[]     @relation("ManagerLeads")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -114,6 +117,33 @@ model Task {
   @@index([dueDate])
   @@index([status])
   @@index([type])
+}
+
+model Lead {
+  id        String  @id @default(cuid())
+  name      String
+  email     String?
+  phone     String?
+  source    String  @default("MANUAL") // AIRBNB | BOOKING | WHATSAPP | INSTAGRAM | REFERRAL | MANUAL
+  status    String  @default("NEW")    // NEW | CONTACTED | QUALIFIED | CONVERTED | LOST
+  notes     String?
+
+  // Propriedade de interesse
+  propertyInterest String?
+
+  // Manager responsável
+  managerId String?
+  manager   User?   @relation("ManagerLeads", fields: [managerId], references: [id])
+
+  // Se convertido → link com reserva
+  reservationId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([managerId])
+  @@index([source])
 }
 
 model Payout {

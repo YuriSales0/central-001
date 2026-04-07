@@ -1,32 +1,37 @@
 import { PrismaClient } from '@prisma/client'
 import { addDays, addHours } from 'date-fns'
+import bcrypt from 'bcryptjs'
 
 const prisma = new PrismaClient()
 
 async function main() {
   console.log('🌱 Seeding database...')
 
+  const hash = (pwd: string) => bcrypt.hash(pwd, 12)
+
   // Admin
   const admin = await prisma.user.upsert({
     where: { email: 'admin@central.app' },
-    update: {},
+    update: { passwordHash: await hash('admin123') },
     create: {
       id: 'admin-001',
       email: 'admin@central.app',
       name: 'Admin Sistema',
       role: 'ADMIN',
+      passwordHash: await hash('admin123'),
     },
   })
 
   // Manager
   const manager = await prisma.user.upsert({
     where: { email: 'manager@central.app' },
-    update: {},
+    update: { passwordHash: await hash('manager123') },
     create: {
       id: 'demo-manager-id',
       email: 'manager@central.app',
       name: 'João Manager',
       role: 'MANAGER',
+      passwordHash: await hash('manager123'),
     },
   })
 
@@ -40,18 +45,20 @@ async function main() {
       name: 'Ana Lima',
       role: 'CREW',
       managerId: manager.id,
+      passwordHash: await hash('crew123'),
     },
   })
 
   const crew2 = await prisma.user.upsert({
     where: { email: 'crew2@central.app' },
-    update: {},
+    update: { passwordHash: await hash('crew123') },
     create: {
       id: 'crew-002',
       email: 'crew2@central.app',
       name: 'Carlos Santos',
       role: 'CREW',
       managerId: manager.id,
+      passwordHash: await hash('crew123'),
     },
   })
 
@@ -221,11 +228,22 @@ async function main() {
     },
   })
 
+  // Leads de demo
+  const leadsData = [
+    { id: 'lead-001', name: 'Pedro Alves', email: 'pedro@email.com', phone: '+55 48 99111-2222', source: 'AIRBNB', status: 'NEW', managerId: manager.id, propertyInterest: 'Apartamento Beira-Mar' },
+    { id: 'lead-002', name: 'Sofia Rocha', email: 'sofia@email.com', phone: '+55 11 98222-3333', source: 'INSTAGRAM', status: 'CONTACTED', managerId: manager.id, propertyInterest: 'Casa da Montanha' },
+    { id: 'lead-003', name: 'Tomás Ferreira', source: 'WHATSAPP', status: 'QUALIFIED', managerId: manager.id, notes: 'Interessado em contrato anual' },
+  ]
+  for (const lead of leadsData) {
+    await prisma.lead.upsert({ where: { id: lead.id }, update: {}, create: lead })
+  }
+
   console.log('✅ Seed concluído!')
-  console.log(`   Admin: ${admin.email}`)
-  console.log(`   Manager: ${manager.email} (ID: ${manager.id})`)
-  console.log(`   Crew: ${crew1.name}, ${crew2.name}`)
+  console.log(`   Admin:   ${admin.email}  / admin123`)
+  console.log(`   Manager: ${manager.email} / manager123`)
+  console.log(`   Crew:    crew1@central.app / crew123`)
   console.log(`   Propriedades: ${prop1.name}, ${prop2.name}`)
+  console.log(`   Leads: 3 criados`)
 }
 
 main()
