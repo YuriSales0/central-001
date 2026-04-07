@@ -45,6 +45,7 @@ interface Totals {
   received: number
   receivedNet: number
   pending: number
+  overdueCount: number
 }
 
 const STATUS_CONFIG: Record<PayoutStatus, { label: string; icon: React.ReactNode; classes: string }> = {
@@ -130,14 +131,21 @@ export default function AdminPayoutsPage() {
 
       <main className="max-w-6xl mx-auto px-6 py-6 space-y-6">
 
-        {/* KPI cards */}
+        {/* KPI cards — o card "Atrasados" é clicável e ativa o filtro */}
         {totals && (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             {[
-              { label: 'Total bruto', value: fmt(totals.gross), sub: 'todos os status', color: 'text-gray-900' },
-              { label: 'Comissões', value: fmt(totals.commission), sub: '18% do bruto', color: 'text-amber-600' },
-              { label: 'Recebido (líquido)', value: fmt(totals.receivedNet), sub: 'confirmados', color: 'text-green-600' },
-              { label: 'A receber', value: fmt(totals.pending), sub: 'pendente + atrasado', color: 'text-blue-600' },
+              { label: 'Total bruto', value: fmt(totals.gross), sub: 'todos os status', color: 'text-gray-900', onClick: undefined, active: false },
+              { label: 'Comissões', value: fmt(totals.commission), sub: '18% do bruto', color: 'text-amber-600', onClick: undefined, active: false },
+              { label: 'Recebido (líquido)', value: fmt(totals.receivedNet), sub: 'confirmados', color: 'text-green-600', onClick: undefined, active: false },
+              {
+                label: 'A receber',
+                value: fmt(totals.pending),
+                sub: 'pendente + atrasado',
+                color: 'text-blue-600',
+                onClick: undefined,
+                active: false,
+              },
             ].map((kpi) => (
               <div key={kpi.label} className="bg-white border border-gray-200 rounded-xl p-4">
                 <div className="text-xs text-gray-500 mb-1">{kpi.label}</div>
@@ -148,9 +156,28 @@ export default function AdminPayoutsPage() {
           </div>
         )}
 
-        {/* Filtros */}
+        {/* Filtros + botão de atalho OVERDUE */}
         <div className="flex flex-wrap items-center gap-3">
+
+          {/* Botão de atalho OVERDUE — destaque visual, toggle */}
+          {totals && totals.overdueCount > 0 && (
+            <button
+              onClick={() => setFilterStatus(filterStatus === 'OVERDUE' ? 'ALL' : 'OVERDUE')}
+              className={clsx(
+                'flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all',
+                filterStatus === 'OVERDUE'
+                  ? 'bg-red-600 text-white border-red-600 shadow-sm shadow-red-200'
+                  : 'bg-red-50 text-red-700 border-red-300 hover:bg-red-100 animate-pulse'
+              )}
+            >
+              <AlertTriangle size={13} />
+              {totals.overdueCount} payout{totals.overdueCount > 1 ? 's' : ''} atrasado{totals.overdueCount > 1 ? 's' : ''}
+              {filterStatus === 'OVERDUE' && <span className="opacity-70">— limpar</span>}
+            </button>
+          )}
+
           <Filter size={14} className="text-gray-400" />
+
           <select
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value as PayoutStatus | 'ALL')}
@@ -161,6 +188,7 @@ export default function AdminPayoutsPage() {
             <option value="RECEIVED">Recebido</option>
             <option value="OVERDUE">Atrasado</option>
           </select>
+
           <select
             value={filterPlatform}
             onChange={(e) => setFilterPlatform(e.target.value as Platform | 'ALL')}
@@ -171,6 +199,7 @@ export default function AdminPayoutsPage() {
             <option value="BOOKING">Booking.com</option>
             <option value="MANUAL">Manual</option>
           </select>
+
           {loading && <span className="text-xs text-gray-400">Carregando...</span>}
           <span className="ml-auto text-xs text-gray-400">{payouts.length} registro{payouts.length !== 1 ? 's' : ''}</span>
         </div>

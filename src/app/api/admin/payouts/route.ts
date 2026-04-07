@@ -52,8 +52,10 @@ export async function GET(req: NextRequest) {
     orderBy: { expectedDate: 'asc' },
   })
 
-  // Totais para o dashboard
-  const totals = payouts.reduce(
+  // Totais para o dashboard (sempre sobre TODOS os payouts, ignorando filtros)
+  const allPayouts = await prisma.payout.findMany({ select: { grossAmount: true, commissionAmount: true, netAmount: true, status: true } })
+
+  const totals = allPayouts.reduce(
     (acc, p) => {
       acc.gross += p.grossAmount
       acc.commission += p.commissionAmount
@@ -65,9 +67,10 @@ export async function GET(req: NextRequest) {
       if (p.status === 'PENDING' || p.status === 'OVERDUE') {
         acc.pending += p.grossAmount
       }
+      if (p.status === 'OVERDUE') acc.overdueCount += 1
       return acc
     },
-    { gross: 0, commission: 0, net: 0, received: 0, receivedNet: 0, pending: 0 }
+    { gross: 0, commission: 0, net: 0, received: 0, receivedNet: 0, pending: 0, overdueCount: 0 }
   )
 
   return NextResponse.json({ payouts, totals })
